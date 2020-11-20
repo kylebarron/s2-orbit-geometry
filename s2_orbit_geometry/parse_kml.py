@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+from typing import Iterable, List
+
+import click
 import geopandas as gpd
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -5,25 +10,22 @@ from keplergl_cli import Visualize
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.ops import transform
 
-path = '/Users/kyle/github/mapping/s2-orbit-geometry/Sentinel-2A_MP_ACQ_KML_20200728T120000_20200820T150000.kml'
-grid_path = '/Users/kyle/github/mapping/s2-orbit-geometry/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
-
 # Enable fiona driver
 gpd.io.file.fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
 
 
-# Read file
-def main():
-    acq_url = 'https://sentinel.esa.int/documents/247904/4041069/Sentinel-2A_MP_ACQ_KML_20200728T120000_20200820T150000.kml'
-    grid_path = '/Users/kyle/github/mapping/s2-orbit-geometry/S2A_OPER_GIP_TILPAR_MPC__20151209T095117_V20150622T000000_21000101T000000_B00.kml'
-
-    acq_gdf = parse_acq_kml(acq_url)
+def join_grid_acqs(grid_path: Path,
+                   acq_paths: List[Path]) -> Iterable[gpd.GeoDataFrame]:
     grid_gdf = load_grid(grid_path)
-    joined = join_grid_acq(grid_gdf, acq_gdf)
+
+    with click.progressbar(acq_paths, file=sys.stderr) as bar:
+        for acq_path in bar:
+            acq_gdf = parse_acq_kml(acq_url)
+            yield join_single_grid_acq(grid_gdf, acq_gdf)
 
 
-def join_grid_acq(grid_gdf: gpd.GeoDataFrame,
-                  acq_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+def join_single_grid_acq(grid_gdf: gpd.GeoDataFrame,
+                         acq_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """Join MGRS grid and acquisition paths
 
     This spatially joins the two datasets on intersecting geometries, then
