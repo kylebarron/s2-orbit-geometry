@@ -20,7 +20,7 @@ def join_grid_acqs(grid_path: Path,
 
     with click.progressbar(acq_paths, file=sys.stderr) as bar:
         for acq_path in bar:
-            acq_gdf = parse_acq_kml(acq_url)
+            acq_gdf = parse_acq_kml(acq_path)
             yield join_single_grid_acq(grid_gdf, acq_gdf)
 
 

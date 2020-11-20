@@ -1,3 +1,4 @@
+import warnings
 from pathlib import Path
 
 import click
@@ -46,6 +47,9 @@ def download_acquisition_kmls(out_dir):
 def join_grid_acquisitions(grid_path, acq_paths, out_dir):
     acq_paths = [Path(x).resolve() for x in acq_paths]
     it = join_grid_acqs(Path(grid_path), acq_paths)
+
+    warnings.filterwarnings('ignore',
+                            message='.*initial implementation of Parquet.*')
 
     for idx, gdf in enumerate(it):
         input_path = acq_paths[idx]
