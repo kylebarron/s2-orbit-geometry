@@ -1,3 +1,4 @@
+import sys
 from io import BytesIO
 from pathlib import Path
 from typing import Iterable, List
@@ -13,7 +14,7 @@ def download_all_acquisition_kmls(out_dir: Path) -> None:
     out_dir = Path(out_dir)
     urls = get_all_acquisition_urls()
 
-    with click.progressbar(urls) as bar:
+    with click.progressbar(urls, file=sys.stderr) as bar:
         for url in bar:
             if url.endswith('.kml'):
                 out_path = out_dir / url.split('/')[-1]
