@@ -97,6 +97,9 @@ def parse_acq_kml(path: str) -> gpd.GeoDataFrame:
     gdf.geometry = gdf.geometry.map(
         lambda polygon: transform(lambda x, y, z: (x, y), polygon))
 
+    # Try to remove self-intersections
+    gdf.geometry = gdf.geometry.buffer(0)
+
     # 'ObservationTimeStart', 'ObservationTimeStop', 'ObservationDuration',
     # 'Scenes'
     keep_cols = ['ID', 'OrbitRelative', 'geometry']
