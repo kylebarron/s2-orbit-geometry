@@ -1,6 +1,10 @@
+from typing import Iterable
+
 import geopandas as gpd
 import pandas as pd
+import requests
 import shapely
+from bs4 import BeautifulSoup
 from keplergl_cli import Visualize
 from shapely.geometry import MultiPolygon, Polygon
 
@@ -101,3 +105,39 @@ def parse_acq_kml(path: str) -> gpd.GeoDataFrame:
 
 
 pd.options.display.max_columns = None
+
+
+def get_all_acquisition_urls() -> Iterable[str]:
+    current = list(get_all_current_acquisition_urls())
+    archive = list(get_all_archive_acquisition_urls())
+
+    return [*current, *archive]
+
+
+def get_all_current_acquisition_urls() -> Iterable[str]:
+    baseurl = 'https://sentinel.esa.int'
+    url = baseurl + '/web/sentinel/missions/sentinel-2/acquisition-plans'
+    r = requests.get(url)
+    soup = BeautifulSoup(r.content)
+
+    s2a_kmls = soup.select('.sentinel-2a a')
+    s2b_kmls = soup.select('.sentinel-2b a')
+
+    for item in [*s2a_kmls, *s2b_kmls]:
+        yield baseurl + item.attrs['href']
+
+
+def get_all_archive_acquisition_urls() -> Iterable[str]:
+    baseurl = 'https://sentinel.esa.int'
+    url = baseurl + '/web/sentinel/missions/sentinel-2/acquisition-plans/archive'
+    r = requests.get(url)
+    soup = BeautifulSoup(r.content)
+
+    s2a_kmls = soup.select('.sentinel-2a a')
+    s2b_kmls = soup.select('.sentinel-2b a')
+
+    for item in [*s2a_kmls, *s2b_kmls]:
+        yield baseurl + item.attrs['href']
+
+    # Missing from above divs
+    yield 'https://sentinel.esa.int/documents/247904/3216744/Sentinel-2B-Acquisition-Plans-2017.zip'
