@@ -2,6 +2,7 @@ import sys
 from io import BytesIO
 from pathlib import Path
 from typing import Iterable, List
+from urllib.error import HTTPError
 from urllib.request import urlretrieve
 from zipfile import ZipFile
 
@@ -14,11 +15,17 @@ def download_all_acquisition_kmls(out_dir: Path) -> None:
     out_dir = Path(out_dir)
     urls = get_all_acquisition_urls()
 
+    # Remove trailing / from urls
+    urls = [url.rstrip('/') for url in urls]
+
     with click.progressbar(urls, file=sys.stderr) as bar:
         for url in bar:
             if url.endswith('.kml'):
                 out_path = out_dir / url.split('/')[-1]
-                urlretrieve(url, out_path)
+                try:
+                    urlretrieve(url, out_path)
+                except HTTPError:
+                    pass
                 continue
 
             if url.endswith('.zip'):
@@ -46,7 +53,7 @@ def get_all_current_acquisition_urls() -> Iterable[str]:
     baseurl = 'https://sentinel.esa.int'
     url = baseurl + '/web/sentinel/missions/sentinel-2/acquisition-plans'
     r = requests.get(url)
-    soup = BeautifulSoup(r.content)
+    soup = BeautifulSoup(r.content, 'lxml')
 
     s2a_kmls = soup.select('.sentinel-2a a')
     s2b_kmls = soup.select('.sentinel-2b a')
@@ -59,7 +66,7 @@ def get_all_archive_acquisition_urls() -> Iterable[str]:
     baseurl = 'https://sentinel.esa.int'
     url = baseurl + '/web/sentinel/missions/sentinel-2/acquisition-plans/archive'
     r = requests.get(url)
-    soup = BeautifulSoup(r.content)
+    soup = BeautifulSoup(r.content, 'lxml')
 
     s2a_kmls = soup.select('.sentinel-2a a')
     s2b_kmls = soup.select('.sentinel-2b a')
