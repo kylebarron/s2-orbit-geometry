@@ -1,5 +1,10 @@
-from typing import Iterable
+from io import BytesIO
+from pathlib import Path
+from typing import Iterable, List
+from urllib.request import urlretrieve
+from zipfile import ZipFile
 
+import click
 import geopandas as gpd
 import pandas as pd
 import requests
@@ -107,7 +112,33 @@ def parse_acq_kml(path: str) -> gpd.GeoDataFrame:
 pd.options.display.max_columns = None
 
 
-def get_all_acquisition_urls() -> Iterable[str]:
+
+def download_all_acquisition_kmls(out_dir: Path) -> None:
+    out_dir = Path(out_dir)
+    urls = get_all_acquisition_urls()
+
+    with click.progressbar(urls) as bar:
+        for url in bar:
+            if url.endswith('.kml'):
+                out_path = out_dir / url.split('/')[-1]
+                urlretrieve(url, out_path)
+                continue
+
+            if url.endswith('.zip'):
+                r = requests.get(url)
+                with ZipFile(BytesIO(r.content)) as zf:
+                    for name in zf.namelist():
+                        with zf.open(name) as file:
+                            out_path = out_dir / name.split('/')[-1]
+                            with open(out_path, 'wb') as f:
+                                f.write(file.read())
+
+                continue
+
+            raise ValueError(f'URL must end in .kml or .zip: {url}')
+
+
+def get_all_acquisition_urls() -> List[str]:
     current = list(get_all_current_acquisition_urls())
     archive = list(get_all_archive_acquisition_urls())
 
