@@ -1,3 +1,5 @@
+import numpy as np
+import string
 import sys
 from pathlib import Path
 from typing import Iterable, List
@@ -12,6 +14,47 @@ from shapely.ops import transform
 
 # Enable fiona driver
 gpd.io.file.fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
+
+def intersect_grid_orbit(group_gdf: gpd.GeoDataFrame, orbit_gdf: gpd.GeoDataFrame, utm_zone: int, utm_north: bool):
+
+    # Use bounds of gdf instead of a naive UTM bbox because there are some
+    # exceptions to the 6 deg width rule, especially around Norway and Svalbard.
+    # The MGRS grid follows these exceptions.
+    bbox = box(*group_gdf.total_bounds)
+
+    # Keep orbits that intersect this bbox
+    local_utm_orbits = orbit_gdf[orbit_gdf.intersects(bbox)]
+
+    # Intersect with bbox. Since this is a global bbox, it's ok for this to be
+    # in WGS84.
+    local_utm_orbits = local_utm_orbits.set_geometry(local_utm_orbits.geometry.intersection(bbox))
+
+    # Reproject to UTM zone
+    epsg_code = get_utm_epsg(utm_zone, utm_north)
+    local_grid = group_gdf.to_crs(epsg=epsg_code)
+    local_utm_orbits = local_utm_orbits.to_crs(epsg=epsg_code)
+
+    # Get swath for each orbit. The swath is 290km, or 145km on each side.
+    # cap_style=3 makes a square cap instead of the default round cap.
+    local_utm_swaths = local_utm_orbits.set_geometry(local_utm_orbits.buffer(145_000, cap_style=3))
+
+    # Intersect the swaths with the grid
+    joined = gpd.sjoin(local_grid, local_utm_swaths, op='intersects')
+
+    # Then merge the swath geometries back onto the grid geometries...
+    joined = pd.merge(joined,
+                      local_utm_swaths,
+                      left_on='index_right',
+                      right_index=True,
+                      suffixes=('', '_swath'))
+
+    # Then compute the intersection of the grid and swath geometries
+    joined = joined.set_geometry(joined.geometry.intersection(joined.geometry_swath))
+
+    # Keep selected columns and reproject back to WGS84
+    keep_cols = ['tile_id', 'geometry', 'utm_zone', 'utm_north', 'relative_orbit']
+    return joined[keep_cols].to_crs(epsg=4326)
+
 
 
 def join_grid_acqs(grid_path: Path,
