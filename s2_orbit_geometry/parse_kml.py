@@ -1,4 +1,3 @@
-import numpy as np
 import string
 import sys
 from pathlib import Path
@@ -6,19 +5,24 @@ from typing import Iterable, List
 
 import click
 import geopandas as gpd
+import numpy as np
 import pandas as pd
+import pygeos
 from bs4 import BeautifulSoup
 from keplergl_cli import Visualize
-from shapely.geometry import MultiPolygon, Polygon
+from shapely.geometry import MultiPolygon, Polygon, box
 from shapely.ops import transform
 
 # Enable fiona driver
 gpd.io.file.fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
 
-def intersect_grid_orbits(grid_gdf, orbit_gdf):
+def intersect_grid_orbits(grid_path, orbit_path):
+    grid_gdf = load_grid(grid_path)
+    orbit_gdf = load_orbit_kml(orbit_path)
+
     # Iterate over utm_zone, north/south combos
     grid_grouped = grid_gdf.groupby(['utm_zone', 'utm_north'])
-    with click.progressbar(grid_grouped) as bar:
+    with click.progressbar(grid_grouped, file=sys.stderr) as bar:
         for (utm_zone, utm_north), group_gdf in bar:
             if utm_zone == 1 or utm_zone == 60:
                 print(
@@ -26,11 +30,14 @@ def intersect_grid_orbits(grid_gdf, orbit_gdf):
                 )
                 continue
 
-            yield intersect_grid_orbit_single_utm_zone(
-                group_gdf=group_gdf,
-                orbit_gdf=orbit_gdf,
-                utm_zone=utm_zone,
-                utm_north=utm_north)
+            try:
+                yield intersect_grid_orbit_single_utm_zone(
+                    group_gdf=group_gdf,
+                    orbit_gdf=orbit_gdf,
+                    utm_zone=utm_zone,
+                    utm_north=utm_north)
+            except pygeos.GEOSException:
+                pass
 
             # UTM zones 1 and 60 are along the international dateline, and thus
             # total_bounds spans the entire southern hemisphere, leading to
