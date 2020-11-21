@@ -16,6 +16,34 @@ from shapely.ops import transform
 gpd.io.file.fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
 
 def intersect_grid_orbit(group_gdf: gpd.GeoDataFrame, orbit_gdf: gpd.GeoDataFrame, utm_zone: int, utm_north: bool):
+def intersect_grid_orbits(grid_gdf, orbit_gdf):
+    # Iterate over utm_zone, north/south combos
+    grid_grouped = grid_gdf.groupby(['utm_zone', 'utm_north'])
+    with click.progressbar(grid_grouped) as bar:
+        for (utm_zone, utm_north), group_gdf in bar:
+            if utm_zone == 1 or utm_zone == 60:
+                print(
+                    'Not implemented for UTM zones 1 and 60 due to dateline issues'
+                )
+                continue
+
+            yield intersect_grid_orbit_single_utm_zone(
+                group_gdf=group_gdf,
+                orbit_gdf=orbit_gdf,
+                utm_zone=utm_zone,
+                utm_north=utm_north)
+
+            # UTM zones 1 and 60 are along the international dateline, and thus
+            # total_bounds spans the entire southern hemisphere, leading to
+            # invalid values in the reprojection.
+            # for stricter_bbox in [box(-180, -90, 0, 90), box(0, -90, 180, 90)]:
+            #     grid_orbit_intersection =  intersect_grid_orbit_single_utm_zone(group_gdf=group_gdf, orbit_gdf=orbit_gdf, utm_zone=utm_zone, utm_north=utm_north, stricter_bbox=stricter_bbox)
+            # stricter_bbox = box(-180, -90, 0, 90)
+
+
+def intersect_grid_orbit_single_utm_zone(
+        group_gdf: gpd.GeoDataFrame, orbit_gdf: gpd.GeoDataFrame, utm_zone: int,
+        utm_north: bool):
 
     # Use bounds of gdf instead of a naive UTM bbox because there are some
     # exceptions to the 6 deg width rule, especially around Norway and Svalbard.
