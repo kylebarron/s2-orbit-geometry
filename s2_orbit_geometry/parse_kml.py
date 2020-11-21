@@ -56,6 +56,14 @@ def intersect_grid_orbit(group_gdf: gpd.GeoDataFrame, orbit_gdf: gpd.GeoDataFram
     return joined[keep_cols].to_crs(epsg=4326)
 
 
+def get_utm_epsg(utm_zone: int, north: bool) -> str:
+    """Get EPSG code for UTM zone
+    """
+    if north:
+        return f'326{utm_zone:02}'
+
+    return f'327{utm_zone:02}'
+
 
 def join_grid_acqs(grid_path: Path,
                    acq_paths: List[Path]) -> Iterable[gpd.GeoDataFrame]:
@@ -114,7 +122,7 @@ def load_grid(grid_path: str) -> gpd.GeoDataFrame:
 
     # Coerce to 2D
     grid_gdf.geometry = grid_gdf.geometry.map(
-        lambda geom: transform(lambda x, y, z: (x, y), geom))
+        lambda geom: transform(lambda x, y, z=None: (x, y), geom))
 
     # Coerce GeometryCollection to a MultiPolygon
     # Each GeometryCollection has one or more Polygon geometries plus a Point
@@ -124,6 +132,12 @@ def load_grid(grid_path: str) -> gpd.GeoDataFrame:
             g for g in geom_collection.geoms
             if isinstance(g, (MultiPolygon, Polygon))
         ]))
+
+    # UTM zone
+    grid_gdf['utm_zone'] = grid_gdf['tile_id'].str[:2].astype(np.uint8)
+
+    # True if zone is north of the equator
+    grid_gdf['utm_north'] = grid_gdf['tile_id'].str[2].isin(list(string.ascii_uppercase[13:]))
 
     return grid_gdf
 
@@ -138,7 +152,7 @@ def parse_acq_kml(path: str) -> gpd.GeoDataFrame:
 
     # Drop Z dimension
     gdf.geometry = gdf.geometry.map(
-        lambda polygon: transform(lambda x, y, z: (x, y), polygon))
+        lambda polygon: transform(lambda x, y, z=None: (x, y), polygon))
 
     # Try to remove self-intersections
     gdf.geometry = gdf.geometry.buffer(0)
@@ -147,3 +161,14 @@ def parse_acq_kml(path: str) -> gpd.GeoDataFrame:
     # 'Scenes'
     keep_cols = ['ID', 'OrbitRelative', 'geometry']
     return gdf[keep_cols]
+
+
+def load_orbit_kml(path: str) -> gpd.GeoDataFrame:
+    gdf = gpd.read_file(path, layer='SENTINEL2A ORBIT Ground-Track')
+
+    # Drop Z dimension
+    gdf.geometry = gdf.geometry.map(
+        lambda geom: transform(lambda x, y, z=None: (x, y), geom))
+
+    gdf = gdf.rename(columns={'Relative_Orbit': 'relative_orbit'})
+    return gdf[['relative_orbit', 'geometry']]
