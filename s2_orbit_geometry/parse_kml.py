@@ -15,7 +15,6 @@ from shapely.ops import transform
 # Enable fiona driver
 gpd.io.file.fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
 
-def intersect_grid_orbit(group_gdf: gpd.GeoDataFrame, orbit_gdf: gpd.GeoDataFrame, utm_zone: int, utm_north: bool):
 def intersect_grid_orbits(grid_gdf, orbit_gdf):
     # Iterate over utm_zone, north/south combos
     grid_grouped = grid_gdf.groupby(['utm_zone', 'utm_north'])
@@ -55,7 +54,8 @@ def intersect_grid_orbit_single_utm_zone(
 
     # Intersect with bbox. Since this is a global bbox, it's ok for this to be
     # in WGS84.
-    local_utm_orbits = local_utm_orbits.set_geometry(local_utm_orbits.geometry.intersection(bbox))
+    local_utm_orbits = local_utm_orbits.set_geometry(
+        local_utm_orbits.geometry.intersection(bbox))
 
     # Reproject to UTM zone
     epsg_code = get_utm_epsg(utm_zone, utm_north)
@@ -64,23 +64,27 @@ def intersect_grid_orbit_single_utm_zone(
 
     # Get swath for each orbit. The swath is 290km, or 145km on each side.
     # cap_style=3 makes a square cap instead of the default round cap.
-    local_utm_swaths = local_utm_orbits.set_geometry(local_utm_orbits.buffer(145_000, cap_style=3))
+    local_utm_swaths = local_utm_orbits.set_geometry(
+        local_utm_orbits.buffer(145_000, cap_style=3))
 
     # Intersect the swaths with the grid
     joined = gpd.sjoin(local_grid, local_utm_swaths, op='intersects')
 
     # Then merge the swath geometries back onto the grid geometries...
-    joined = pd.merge(joined,
-                      local_utm_swaths,
-                      left_on='index_right',
-                      right_index=True,
-                      suffixes=('', '_swath'))
+    joined = pd.merge(
+        joined,
+        local_utm_swaths,
+        left_on='index_right',
+        right_index=True,
+        suffixes=('', '_swath'))
 
     # Then compute the intersection of the grid and swath geometries
-    joined = joined.set_geometry(joined.geometry.intersection(joined.geometry_swath))
+    joined = joined.set_geometry(
+        joined.geometry.intersection(joined.geometry_swath))
 
     # Keep selected columns and reproject back to WGS84
-    keep_cols = ['tile_id', 'geometry', 'utm_zone', 'utm_north', 'relative_orbit']
+    keep_cols = [
+        'tile_id', 'geometry', 'utm_zone', 'utm_north', 'relative_orbit']
     return joined[keep_cols].to_crs(epsg=4326)
 
 
@@ -103,8 +107,9 @@ def join_grid_acqs(grid_path: Path,
             yield join_single_grid_acq(grid_gdf, acq_gdf)
 
 
-def join_single_grid_acq(grid_gdf: gpd.GeoDataFrame,
-                         acq_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+def join_single_grid_acq(
+        grid_gdf: gpd.GeoDataFrame,
+        acq_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """Join MGRS grid and acquisition paths
 
     This spatially joins the two datasets on intersecting geometries, then
@@ -116,11 +121,12 @@ def join_single_grid_acq(grid_gdf: gpd.GeoDataFrame,
     joined = gpd.sjoin(grid_gdf, acq_gdf, op='intersects')
 
     # Then merge the acquisition paths back onto the grid geometries...
-    joined = pd.merge(joined,
-                      acq_gdf,
-                      left_on='index_right',
-                      right_index=True,
-                      suffixes=('', '_acq'))
+    joined = pd.merge(
+        joined,
+        acq_gdf,
+        left_on='index_right',
+        right_index=True,
+        suffixes=('', '_acq'))
 
     # Then compute the intersection of the grid and acquisition geometries
     joined.geometry = joined.geometry.intersection(joined.geometry_acq)
@@ -158,14 +164,14 @@ def load_grid(grid_path: str) -> gpd.GeoDataFrame:
     grid_gdf.geometry = grid_gdf.geometry.apply(
         lambda geom_collection: MultiPolygon([
             g for g in geom_collection.geoms
-            if isinstance(g, (MultiPolygon, Polygon))
-        ]))
+            if isinstance(g, (MultiPolygon, Polygon))]))
 
     # UTM zone
     grid_gdf['utm_zone'] = grid_gdf['tile_id'].str[:2].astype(np.uint8)
 
     # True if zone is north of the equator
-    grid_gdf['utm_north'] = grid_gdf['tile_id'].str[2].isin(list(string.ascii_uppercase[13:]))
+    grid_gdf['utm_north'] = grid_gdf['tile_id'].str[2].isin(
+        list(string.ascii_uppercase[13:]))
 
     return grid_gdf
 

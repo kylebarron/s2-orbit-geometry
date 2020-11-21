@@ -19,11 +19,12 @@ def main():
 
 
 @click.command()
-@click.option('-o',
-              '--out-dir',
-              type=PathType(file_okay=False, dir_okay=True, writable=True),
-              help='Directory to write KML acquisition paths to.',
-              required=True)
+@click.option(
+    '-o',
+    '--out-dir',
+    type=PathType(file_okay=False, dir_okay=True, writable=True),
+    help='Directory to write KML acquisition paths to.',
+    required=True)
 def download_acquisition_kmls(out_dir):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -31,25 +32,24 @@ def download_acquisition_kmls(out_dir):
 
 
 @click.command()
-@click.option('--grid-path',
-              type=PathType(file_okay=True,
-                            dir_okay=False,
-                            readable=True,
-                            exists=True),
-              help='Sentinel 2 MGRS grid',
-              required=True)
-@click.option('-o',
-              '--out-dir',
-              type=PathType(file_okay=False, dir_okay=True, writable=True),
-              help='Directory to write KML acquisition paths to.',
-              required=True)
+@click.option(
+    '--grid-path',
+    type=PathType(file_okay=True, dir_okay=False, readable=True, exists=True),
+    help='Sentinel 2 MGRS grid',
+    required=True)
+@click.option(
+    '-o',
+    '--out-dir',
+    type=PathType(file_okay=False, dir_okay=True, writable=True),
+    help='Directory to write KML acquisition paths to.',
+    required=True)
 @click.argument('acq_paths', type=PathType(exists=True), nargs=-1)
 def join_grid_acquisitions(grid_path, acq_paths, out_dir):
     acq_paths = [Path(x).resolve() for x in acq_paths]
     it = join_grid_acqs(Path(grid_path), acq_paths)
 
-    warnings.filterwarnings('ignore',
-                            message='.*initial implementation of Parquet.*')
+    warnings.filterwarnings(
+        'ignore', message='.*initial implementation of Parquet.*')
 
     for idx, gdf in enumerate(it):
         input_path = acq_paths[idx]
