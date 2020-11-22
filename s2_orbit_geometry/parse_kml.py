@@ -1,7 +1,7 @@
 import string
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Union
 
 import click
 import geopandas as gpd
@@ -112,7 +112,7 @@ def intersect_grid_orbit_single_utm_zone(
         joined.geometry.intersection(joined.geometry_swath))
 
     # Filter on orbits that exist with an inner join
-    if filter_orbits_df:
+    if filter_orbits_df is not None:
         joined = pd.merge(
             joined,
             filter_orbits_df,
