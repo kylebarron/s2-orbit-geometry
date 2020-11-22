@@ -71,13 +71,31 @@ def join_grid_acquisitions(grid_path, acq_paths, out_dir):
     help='Orbit KML',
     required=True)
 @click.option(
+    '--filter-orbits-path',
+    type=PathType(file_okay=True, dir_okay=False, readable=True, exists=True),
+    help=
+    'JSON file with orbits to include. Keys should be 5-character tile ids and values should be lists of integers representing relative orbits.',
+    required=False,
+    default=None)
+@click.option(
     '-o',
     '--out-path',
     type=PathType(file_okay=True, dir_okay=False, writable=True),
     help='File to write to.',
     required=True)
-def join_orbit_grid(grid_path, orbit_path, out_path):
-    joined = pd.concat(list(intersect_grid_orbits(grid_path, orbit_path)))
+def join_orbit_grid(grid_path, orbit_path, filter_orbits_path, out_path):
+
+    filter_orbits = None
+    if filter_orbits_path:
+        with open(filter_orbits_path) as f:
+            filter_orbits = json.load(f)
+
+    joined = pd.concat(
+        list(
+            intersect_grid_orbits(
+                grid_path=grid_path,
+                orbit_path=orbit_path,
+                filter_orbits=filter_orbits)))
     joined.to_parquet(out_path)
 
 
@@ -101,8 +119,9 @@ def available_tile_orbits(index_path):
     PRODUCT_IDs to find the orbit-tile combinations that exist in the archive.
     """
     tile_orbits = find_available_orbit_tiles(index_path)
-    tile_orbits = {k: list(v) for k, v in tile_orbits.items()}
 
+    # Convert set to list to be json-encodable
+    tile_orbits = {k: list(v) for k, v in tile_orbits.items()}
     click.echo(json.dumps(tile_orbits, separators=(',', ':')))
 
 

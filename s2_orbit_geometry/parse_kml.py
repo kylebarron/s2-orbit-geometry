@@ -1,7 +1,7 @@
 import string
 import sys
 from pathlib import Path
-from typing import Iterable, List
+from typing import Dict, Iterable, List, Optional, Set
 
 import click
 import geopandas as gpd
@@ -16,9 +16,27 @@ from shapely.ops import transform
 # Enable fiona driver
 gpd.io.file.fiona.drvsupport.supported_drivers['LIBKML'] = 'rw'
 
-def intersect_grid_orbits(grid_path, orbit_path):
+def intersect_grid_orbits(
+    grid_path: Union[Path, str],
+    orbit_path: Union[Path, str],
+    filter_orbits: Optional[Dict[str, Set[int]]] = None
+) -> Iterable[gpd.GeoDataFrame]:
     grid_gdf = load_grid(grid_path)
     orbit_gdf = load_orbit_kml(orbit_path)
+
+    # If filter_orbits exists, keep only tile ids that exist in it
+    # Construct a pandas DataFrame with these orbits for later inner joins
+    filter_orbits_df = None
+    if filter_orbits:
+        grid_gdf = grid_gdf[grid_gdf['tile_id'].isin(filter_orbits.keys())]
+
+        filter_orbits_df = pd.concat([
+            pd.DataFrame({
+                'tile_id': [tile_id] * len(orbits),
+                'relative_orbit': orbits})
+            for tile_id, orbits in filter_orbits.items()])
+        filter_orbits_df['relative_orbit'] = pd.to_numeric(
+            filter_orbits_df['relative_orbit'], downcast='unsigned')
 
     # Iterate over utm_zone, north/south combos
     grid_grouped = grid_gdf.groupby(['utm_zone', 'utm_north'])
@@ -35,7 +53,8 @@ def intersect_grid_orbits(grid_path, orbit_path):
                     group_gdf=group_gdf,
                     orbit_gdf=orbit_gdf,
                     utm_zone=utm_zone,
-                    utm_north=utm_north)
+                    utm_north=utm_north,
+                    filter_orbits_df=filter_orbits_df)
             except pygeos.GEOSException:
                 pass
 
@@ -48,8 +67,11 @@ def intersect_grid_orbits(grid_path, orbit_path):
 
 
 def intersect_grid_orbit_single_utm_zone(
-        group_gdf: gpd.GeoDataFrame, orbit_gdf: gpd.GeoDataFrame, utm_zone: int,
-        utm_north: bool):
+        group_gdf: gpd.GeoDataFrame,
+        orbit_gdf: gpd.GeoDataFrame,
+        utm_zone: int,
+        utm_north: bool,
+        filter_orbits_df: Optional[pd.DataFrame] = None) -> gpd.GeoDataFrame:
 
     # Use bounds of gdf instead of a naive UTM bbox because there are some
     # exceptions to the 6 deg width rule, especially around Norway and Svalbard.
@@ -80,7 +102,7 @@ def intersect_grid_orbit_single_utm_zone(
     # Then merge the swath geometries back onto the grid geometries...
     joined = pd.merge(
         joined,
-        local_utm_swaths,
+        local_utm_swaths[['geometry']],
         left_on='index_right',
         right_index=True,
         suffixes=('', '_swath'))
@@ -88,6 +110,14 @@ def intersect_grid_orbit_single_utm_zone(
     # Then compute the intersection of the grid and swath geometries
     joined = joined.set_geometry(
         joined.geometry.intersection(joined.geometry_swath))
+
+    # Filter on orbits that exist with an inner join
+    if filter_orbits_df:
+        joined = pd.merge(
+            joined,
+            filter_orbits_df,
+            on=['tile_id', 'relative_orbit'],
+            how='inner')
 
     # Keep selected columns and reproject back to WGS84
     keep_cols = [
@@ -209,7 +239,12 @@ def load_orbit_kml(path: str) -> gpd.GeoDataFrame:
     gdf.geometry = gdf.geometry.map(to_2d)
 
     gdf = gdf.rename(columns={'Relative_Orbit': 'relative_orbit'})
-    return gdf[['relative_orbit', 'geometry']]
+    gdf = gdf[['relative_orbit', 'geometry']]
+
+    gdf['relative_orbit'] = pd.to_numeric(
+        gdf['relative_orbit'], downcast='unsigned')
+
+    return gdf
 
 
 def to_2d(geom):
