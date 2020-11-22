@@ -162,8 +162,7 @@ def load_grid(grid_path: str) -> gpd.GeoDataFrame:
     grid_gdf = grid_gdf[['tile_id', 'geometry']]
 
     # Coerce to 2D
-    grid_gdf.geometry = grid_gdf.geometry.map(
-        lambda geom: transform(lambda x, y, z=None: (x, y), geom))
+    grid_gdf.geometry = grid_gdf.geometry.map(to_2d)
 
     # Coerce GeometryCollection to a MultiPolygon
     # Each GeometryCollection has one or more Polygon geometries plus a Point
@@ -192,8 +191,7 @@ def parse_acq_kml(path: str) -> gpd.GeoDataFrame:
     gdf = gpd.read_file(path, layer='NOMINAL')
 
     # Drop Z dimension
-    gdf.geometry = gdf.geometry.map(
-        lambda polygon: transform(lambda x, y, z=None: (x, y), polygon))
+    gdf.geometry = gdf.geometry.map(to_2d)
 
     # Try to remove self-intersections
     gdf.geometry = gdf.geometry.buffer(0)
@@ -208,8 +206,11 @@ def load_orbit_kml(path: str) -> gpd.GeoDataFrame:
     gdf = gpd.read_file(path, layer='SENTINEL2A ORBIT Ground-Track')
 
     # Drop Z dimension
-    gdf.geometry = gdf.geometry.map(
-        lambda geom: transform(lambda x, y, z=None: (x, y), geom))
+    gdf.geometry = gdf.geometry.map(to_2d)
 
     gdf = gdf.rename(columns={'Relative_Orbit': 'relative_orbit'})
     return gdf[['relative_orbit', 'geometry']]
+
+
+def to_2d(geom):
+    return transform(lambda x, y, z=None: (x, y), geom)
