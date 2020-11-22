@@ -9,6 +9,28 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Union, Iterable
+def match_aws_gcp(gcp_index_path, aws_index_paths):
+    """Match AWS and GCP metadata datasets
+
+    Note this assumes that if the _folder_ exists, then all files exist in the
+    COGS bucket. I.e. it doesn't check that all files are correctly there.
+    """
+    gcp_df = load_google_metadata(gcp_index_path)
+    for aws_df in load_aws_metadata(aws_index_paths):
+        merged = aws_df.merge(
+            gcp_df,
+            left_index=True,
+            right_index=True,
+            how='left',
+            indicator=True)
+
+        # TODO: indicator validation?
+        gcp_df[(gcp_df['mgrs_tile'] == '53RLP')]
+        gcp_df[(gcp_df['mgrs_tile'] == '53RLP')
+               & (gcp_df['sensing_day'] == pd.to_datetime('2017-01-14'))]
+        len(test[test['_merge'] == 'left_only'])
+        test[test['_merge'] == 'left_only']
+
 def load_aws_metadata(
         aws_index_paths: Iterable[Union[str, Path]]) -> Iterable[pd.DataFrame]:
     for aws_index_path in aws_index_paths:
