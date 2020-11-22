@@ -7,7 +7,7 @@ import pandas as pd
 
 from .available_tile_orbits import find_available_orbit_tiles
 from .download_acquisition_kmls import download_all_acquisition_kmls
-from .parse_kml import join_grid_acqs
+from .parse_kml import intersect_grid_orbits, join_grid_acqs
 
 
 class PathType(click.Path):
@@ -63,6 +63,28 @@ def join_grid_acquisitions(grid_path, acq_paths, out_dir):
 @click.option(
     '--grid-path',
     type=PathType(file_okay=True, dir_okay=False, readable=True, exists=True),
+    help='Sentinel 2 MGRS grid',
+    required=True)
+@click.option(
+    '--orbit-path',
+    type=PathType(file_okay=True, dir_okay=False, readable=True, exists=True),
+    help='Orbit KML',
+    required=True)
+@click.option(
+    '-o',
+    '--out-path',
+    type=PathType(file_okay=True, dir_okay=False, writable=True),
+    help='File to write to.',
+    required=True)
+def join_orbit_grid(grid_path, orbit_path, out_path):
+    joined = pd.concat(list(intersect_grid_orbits(grid_path, orbit_path)))
+    joined.to_parquet(out_path)
+
+
+@click.command()
+@click.option(
+    '--index-path',
+    type=PathType(file_okay=True, dir_okay=False, readable=True, exists=True),
     help=
     'Sentinel 2 L2 Index file from Google Cloud Storage (https://console.cloud.google.com/storage/browser/_details/gcp-public-data-sentinel-2/L2/index.csv.gz)',
     required=True)
@@ -86,6 +108,7 @@ def available_tile_orbits(index_path):
 
 main.add_command(download_acquisition_kmls)
 main.add_command(join_grid_acquisitions)
+main.add_command(join_orbit_grid)
 main.add_command(available_tile_orbits)
 
 if __name__ == '__main__':
