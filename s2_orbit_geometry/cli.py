@@ -7,6 +7,8 @@ import pandas as pd
 
 from .available_tile_orbits import find_available_orbit_tiles
 from .download_acquisition_kmls import download_all_acquisition_kmls
+from .download_copernicus import \
+  download_copernicus_csvs as _download_copernicus_csvs
 from .parse_kml import intersect_grid_orbits, join_grid_acqs
 
 
@@ -123,6 +125,16 @@ def available_tile_orbits(index_path):
     # Convert set to list to be json-encodable
     tile_orbits = {k: list(v) for k, v in tile_orbits.items()}
     click.echo(json.dumps(tile_orbits, separators=(',', ':')))
+
+
+@click.command()
+@click.option(
+    '--out-dir',
+    type=PathType(file_okay=False, dir_okay=True, writable=True),
+    help='Directory for writing Copernicus CSVs',
+    required=True)
+def download_copernicus_csvs(out_dir):
+    _download_copernicus_csvs(out_dir)
 
 
 main.add_command(download_acquisition_kmls)
