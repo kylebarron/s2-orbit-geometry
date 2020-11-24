@@ -14,13 +14,13 @@ def download_copernicus_csvs(out_dir):
     s2a_url = 'https://scihub.copernicus.eu/catalogueview/S2A'
     s2b_url = 'https://scihub.copernicus.eu/catalogueview/S2B'
 
-    print('Finding all CSV urls', file=sys.stderr)
+    print('Finding all CSV urls. This may take a while.', file=sys.stderr)
     csv_urls = [
         *find_copernicus_csv_urls(s2a_url), *find_copernicus_csv_urls(s2b_url)]
 
     with click.progressbar(csv_urls, file=sys.stderr) as bar:
         for csv_url in bar:
-            out_path = out_dir / Path(x).name
+            out_path = out_dir / Path(csv_url).name
             urlretrieve(csv_url, out_path)
 
 

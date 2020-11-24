@@ -141,6 +141,7 @@ main.add_command(download_acquisition_kmls)
 main.add_command(join_grid_acquisitions)
 main.add_command(join_orbit_grid)
 main.add_command(available_tile_orbits)
+main.add_command(download_copernicus_csvs)
 
 if __name__ == '__main__':
     main()
